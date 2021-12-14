@@ -6,9 +6,9 @@
 #include "print.h"
 #include "hd44780.h"
 
-char senhaCadastrada[6];
-char senhaRepetida[6];
-char senhaAbrir[6];
+char senhaCadastrada[7];
+char senhaRepetida[7];
+char senhaAbrir[7];
 
 // decodifica leitura do keypad
 char scan_keypad()
@@ -116,7 +116,7 @@ void estadoLivre()
 
 int verificar(uint16_t key, int count, char senha[])
 {
-	if (key == '*')
+	if (key == '*' && count < 6)
 	{
 		if (senha == senhaRepetida)
 		{
@@ -132,7 +132,7 @@ int verificar(uint16_t key, int count, char senha[])
 			}
 		}
 
-		if (senha == senhaCadastrada || senha == senhaAbrir)
+		if ((senha == senhaCadastrada || senha == senhaAbrir) && count < 6)
 		{
 			hd44780_clear();
 			for (int i = 0; i < count - 1; i++)
@@ -142,6 +142,11 @@ int verificar(uint16_t key, int count, char senha[])
 		}
 		return -1;
 	}
+	if (key == '#' && count == 6)
+	{
+		return 0;
+	}
+
 	return 1;
 }
 
@@ -150,7 +155,7 @@ void cadastrandoSenha(uint16_t key, char senha[])
 	int count = 0;
 	for (;;)
 	{
-		while (count < 6) // Senha de 6 digitos
+		while (count < 7) // Senha de 6 digitos
 		{
 			key = scan_keypad();
 
@@ -159,7 +164,7 @@ void cadastrandoSenha(uint16_t key, char senha[])
 				count = count - 1;
 			}
 
-			else
+			else if (verificar(key, count, senha) == 1)
 			{
 				senha[count] = key;
 
@@ -169,6 +174,10 @@ void cadastrandoSenha(uint16_t key, char senha[])
 					count = count + 1;
 				}
 			}
+			else
+			{ //returns 0
+				break;
+			}
 		}
 		break;
 	}
@@ -176,7 +185,7 @@ void cadastrandoSenha(uint16_t key, char senha[])
 
 int comparandoSenhas(char senhaCadastrada[], char senhaRepetida[])
 {
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < 7; i++)
 	{
 		if (senhaCadastrada[i] != senhaRepetida[i])
 		{
@@ -219,7 +228,7 @@ void abrir(uint16_t key, char senha[])
 	hd44780_clear();
 	for (;;)
 	{
-		while (count < 6) // Senha de 6 digitos
+		while (count < 7) // Senha de 6 digitos
 		{
 			key = scan_keypad();
 
@@ -228,7 +237,7 @@ void abrir(uint16_t key, char senha[])
 				count = count - 1;
 			}
 
-			else
+			else if (verificar(key, count, senha) == 1)
 			{
 				senha[count] = key;
 
@@ -237,6 +246,10 @@ void abrir(uint16_t key, char senha[])
 					printInConsole(senha, count);
 					count = count + 1;
 				}
+			}
+			else
+			{ //returns 0
+				break;
 			}
 		}
 		break;
@@ -261,6 +274,7 @@ int comparar(char senhaCadastrada[], char senha[])
 
 void abrirCofre(uint16_t key, char senha[])
 {
+	PORTB &= ~(1 << PB7);
 	hd44780_clear();
 	int count = 0;
 	int tentativas = 0;
@@ -285,8 +299,10 @@ void abrirCofre(uint16_t key, char senha[])
 	if (tentativas == 3)
 	{
 		hd44780_clear();
+		PORTB |= (1 << PB7);
 		hd44780_puts("bloqueado");
 		_delay_ms(30000);
+		abrirCofre(key, senha);
 	}
 }
 
